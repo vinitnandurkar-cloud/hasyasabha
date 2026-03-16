@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="mr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <title>हास्यसभा | HasyaSabha</title>
+    <meta name="description" content="The Comedy Assembly - WMM Gudi Padwa Party Game" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: 'Segoe UI', Arial, sans-serif; }
+
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.3); opacity: 0.6; }
+      }
+      @keyframes urgentPulse {
+        from { box-shadow: 0 0 0 0 rgba(198, 40, 40, 0.5); }
+        to   { box-shadow: 0 0 0 14px rgba(198, 40, 40, 0); }
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(16px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes winnerEntrance {
+        0%   { opacity: 0; transform: scale(0.7); }
+        70%  { transform: scale(1.05); }
+        100% { opacity: 1; transform: scale(1); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
