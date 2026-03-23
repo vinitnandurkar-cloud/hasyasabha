@@ -11,6 +11,46 @@ const DEFAULT_GAME_CODE = process.env.GAME_CODE || "WMMGUDIPADWA";
 const TIMER_DURATION = 120; // seconds
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5174";
 
+// ── Profanity Filter ──────────────────────────────────────────
+// Common English abusive words (partial list — covers major slurs/swear words)
+const ENGLISH_BAD_WORDS = [
+  "fuck","shit","bitch","bastard","asshole","ass","cunt","dick","cock","pussy",
+  "whore","slut","nigger","nigga","faggot","fag","retard","idiot","motherfucker",
+  "fucker","bullshit","damn","hell","crap","piss","wank","wanker","twat","prick",
+  "arse","bollocks","shithead","fuckhead","dumbass","jackass","douchebag","wtf",
+  "stfu","gtfo","kys","rape","rapist","kill yourself","die","moron","imbecile",
+];
+
+// Common Marathi / Hindi abusive words (transliterated)
+const MARATHI_BAD_WORDS = [
+  // Marathi gaalis
+  "madar","madarchod","bhenchod","behenchod","bhen","bhencho","bhenki",
+  "gaand","gaandu","gandu","lauda","lavda","lavde","lund","lundfakir",
+  "randi","rand","randya","randichi","jhavto","jhav","jhavla","jhavli",
+  "chodu","chodun","chod","chodtoy","chodtoes","gharchi rand",
+  "kutri","kutarya","kutarichi","sala","salya","saala","saali",
+  "harami","haramkhor","haramzada","haramzadi","haramkhor",
+  "kamina","kamine","kaminya","bevda","bevde","maderchod",
+  "aai","aaicha","aaicha gho","aaicha bo","aaizhavya","aaicho","aaicha zhavla",
+  "baaila","bailed","nanachi","nanachya","nana","nanavati",
+  "chakka","hijra","hijda","hijaada","napunsak",
+  "chutiya","chutiye","chut","chutiyap","mc","bc","bhk",
+  // Devanagari script common abuses
+  "मादरचोद","भेनचोद","गांड","गांडू","लवडा","रांड","चोदू","साला","हरामी","चुत","चुतिया",
+];
+
+function containsProfanity(text) {
+  const lower = text.toLowerCase().replace(/[^a-z\u0900-\u097f\s]/g, " ");
+  const words = lower.split(/\s+/);
+  for (const bad of ENGLISH_BAD_WORDS) {
+    if (lower.includes(bad)) return true;
+  }
+  for (const bad of MARATHI_BAD_WORDS) {
+    if (lower.includes(bad.toLowerCase())) return true;
+  }
+  return false;
+}
+
 // ── Translation helper (MyMemory free API) ────────────────────
 async function translateToMarathi(text) {
   try {
@@ -204,6 +244,9 @@ io.on("connection", (socket) => {
     if (!playerName?.trim()) {
       return socket.emit("join-error", { message: "Please enter your name." });
     }
+    if (containsProfanity(playerName.trim())) {
+      return socket.emit("join-error", { message: "⚠️ कृपया योग्य नाव वापरा. (Please use an appropriate name! 🙏)" });
+    }
     if (gameCode?.trim().toUpperCase() !== gameState.code.toUpperCase()) {
       return socket.emit("join-error", { message: "Invalid game code. Check with the admin." });
     }
@@ -337,6 +380,9 @@ io.on("connection", (socket) => {
     }
     if (!text?.trim()) {
       return socket.emit("answer-error", { message: "Answer cannot be empty." });
+    }
+    if (containsProfanity(text.trim())) {
+      return socket.emit("answer-error", { message: "⚠️ तुमचे उत्तर अयोग्य शब्द आहेत. कृपया योग्य भाषा वापरा. (Your answer contains inappropriate language. Please keep it clean! 🙏)" });
     }
     const alreadyAnswered = gameState.answers.some(
       (a) => a.questionId === questionId && a.playerName === player.name
