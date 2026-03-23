@@ -184,24 +184,10 @@ function startQuestionTimer() {
       }
       io.emit("timer-expired", {});
 
-      // Auto-pick winner by most votes when timer runs out
-      const activeId = gameState.activeQuestion?.id;
-      if (activeId) {
-        const questionAnswers = gameState.answers
-          .map((a, i) => ({ ...a, answerIndex: i }))
-          .filter((a) => a.questionId === activeId);
-
-        if (questionAnswers.length > 0) {
-          const top = questionAnswers.reduce((best, a) =>
-            a.votes.size > best.votes.size ? a : best
-          );
-          announceWinner(top.answerIndex);
-        } else {
-          // No answers — just mark question done
-          const q = gameState.questions.find((q) => q.id === activeId);
-          if (q) q.status = "done";
-          gameState.activeQuestion = null;
-        }
+      // Timer expired — admin reads answers aloud and picks winner manually
+      // Just notify admin so they can see all answers and select
+      if (gameState.adminSocketId) {
+        io.to(gameState.adminSocketId).emit("timer-expired-admin", {});
       }
     }
   }, 1000);
@@ -373,11 +359,7 @@ io.on("connection", (socket) => {
     // Ack submitter
     socket.emit("answer-submitted", {});
 
-    // Broadcast updated answer list to all players
-    const publicAnswers = getPublicAnswers(questionId);
-    io.to("players").emit("answers-updated", { answers: publicAnswers });
-
-    // Notify admin
+    // Notify admin only — players don't see each other's answers
     if (gameState.adminSocketId) {
       io.to(gameState.adminSocketId).emit("new-answer", {
         questionId,
@@ -393,49 +375,7 @@ io.on("connection", (socket) => {
     console.log(`[answer] ${player.name} (anon: ${anonymous}): "${text.trim()}"`);
   });
 
-  // ── Player: cast vote ──────────────────────────────────────
-  socket.on("cast-vote", ({ answerIndex }) => {
-    const player = gameState.players.get(socket.id);
-    if (!player) return;
-
-    const answer = gameState.answers[answerIndex];
-    if (!answer) return;
-    if (!gameState.activeQuestion || answer.questionId !== gameState.activeQuestion.id) return;
-
-    // Can't vote for your own answer
-    if (answer.playerName === player.name) {
-      return socket.emit("vote-error", { message: "You can't vote for your own answer!" });
-    }
-
-    // Toggle vote: if already voted for this, remove it
-    if (answer.votes.has(player.name)) {
-      answer.votes.delete(player.name);
-    } else {
-      // Remove any previous vote this player cast for this question
-      gameState.answers.forEach((a) => {
-        if (a.questionId === answer.questionId) {
-          a.votes.delete(player.name);
-        }
-      });
-      answer.votes.add(player.name);
-    }
-
-    // Broadcast updated answers to all players
-    const publicAnswers = getPublicAnswers(answer.questionId);
-    io.to("players").emit("answers-updated", { answers: publicAnswers });
-
-    // Update admin vote counts too
-    if (gameState.adminSocketId) {
-      io.to(gameState.adminSocketId).emit("votes-updated", {
-        answers: serializeAnswers(
-          gameState.answers.filter((a) => a.questionId === answer.questionId),
-          true
-        ),
-      });
-    }
-
-    console.log(`[vote] ${player.name} -> answer[${answerIndex}] (total: ${answer.votes.size})`);
-  });
+  // cast-vote removed — admin picks winner directly
 
   // ── Admin: manually select winner (override) ───────────────
   socket.on("select-winner", ({ answerIndex }) => {
