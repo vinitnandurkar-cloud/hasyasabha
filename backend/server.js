@@ -3,6 +3,7 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import { v4 as uuidv4 } from "uuid";
+import Anthropic from "@anthropic-ai/sdk";
 
 // ── Config ────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
@@ -90,9 +91,76 @@ const io = new Server(httpServer, {
 app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
 
+// Anthropic client (only used for AI ranking)
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || "" });
+
 app.get("/health", (_req, res) =>
   res.json({ status: "ok", players: gameState.players.size, code: gameState.code })
 );
+
+// ── REST: AI rank answers ──────────────────────────────────────
+app.post("/api/rank-answers", async (req, res) => {
+  const { answers, question } = req.body;
+  if (!answers || answers.length === 0) return res.json({ rankings: [] });
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(500).json({ error: "ANTHROPIC_API_KEY not set on server." });
+  }
+
+  const answerList = answers
+    .map((a, i) => `${i + 1}. [${a.displayName}]: "${a.text}"`)
+    .join("\n");
+
+  try {
+    const message = await anthropic.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 1024,
+      messages: [{
+        role: "user",
+        content: `You are a judge at a Marathi comedy party game called HasyaSabha.
+The question asked was: "${question}"
+
+Here are the player answers:
+${answerList}
+
+Pick the TOP 3 funniest and wittiest answers. Consider: wordplay, originality, cultural relevance, absurdity, and Marathi humour sensibility.
+
+Respond ONLY with valid JSON in this exact format, no extra text:
+{
+  "rankings": [
+    { "rank": 1, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" },
+    { "rank": 2, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" },
+    { "rank": 3, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" }
+  ]
+}`
+      }]
+    });
+
+    const raw = message.content[0].text.trim();
+    const parsed = JSON.parse(raw);
+    res.json(parsed);
+  } catch (e) {
+    console.error("[AI rank] error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── REST: Export answers as CSV ────────────────────────────────
+app.get("/api/export-csv", (req, res) => {
+  const rows = [["Question", "Player", "Answer", "Anonymous"]];
+  for (const a of gameState.answers) {
+    const q = gameState.questions.find((q) => q.id === a.questionId);
+    rows.push([
+      `"${(q?.text || "").replace(/"/g, '""')}"`,
+      `"${a.playerName.replace(/"/g, '""')}"`,
+      `"${a.text.replace(/"/g, '""')}"`,
+      a.anonymous ? "Yes" : "No",
+    ]);
+  }
+  const csv = rows.map((r) => r.join(",")).join("\n");
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="hasyasabha-answers.csv"`);
+  res.send(csv);
+});
 
 // ── Helpers ───────────────────────────────────────────────────
 // Serialize answers for broadcast (convert Set to count + visible name)

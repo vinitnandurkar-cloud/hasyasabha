@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function AnswerCard({ answer, onSelectWinner }) {
+export default function AnswerCard({ answer, onSelectWinner, aiReason }) {
   const [hovered, setHovered] = useState(false);
   const voteCount = answer.voteCount ?? 0;
 
@@ -34,6 +34,10 @@ export default function AnswerCard({ answer, onSelectWinner }) {
       </div>
 
       <p style={styles.answerText}>{answer.text}</p>
+
+      {aiReason && (
+        <p style={styles.aiReason}>🤖 "{aiReason}"</p>
+      )}
 
       <button style={styles.winnerBtn} onClick={onSelectWinner}>
         🏆 विजेता म्हणून निवडा | Pick as Winner
@@ -70,6 +74,16 @@ const styles = {
     fontSize: "16px",
     color: "#333",
     margin: "0 0 12px 0",
+    lineHeight: "1.5",
+  },
+  aiReason: {
+    fontSize: "12px",
+    color: "#7B1FA2",
+    fontStyle: "italic",
+    margin: "0 0 10px 0",
+    background: "#F3E5F5",
+    borderRadius: "6px",
+    padding: "5px 10px",
     lineHeight: "1.5",
   },
   winnerBtn: {
