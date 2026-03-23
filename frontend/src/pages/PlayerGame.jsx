@@ -1,7 +1,35 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getSocket } from "../socket.js";
 import Timer from "../components/Timer.jsx";
 import WinnerModal from "../components/WinnerModal.jsx";
+
+// ── Client-side profanity check (mirrors backend list) ────────
+const ENGLISH_BAD_WORDS = [
+  "fuck","shit","bitch","bastard","asshole","ass","cunt","dick","cock","pussy",
+  "whore","slut","nigger","nigga","faggot","fag","retard","idiot","motherfucker",
+  "fucker","bullshit","damn","hell","crap","piss","wank","wanker","twat","prick",
+  "arse","bollocks","shithead","fuckhead","dumbass","jackass","douchebag","wtf",
+  "stfu","gtfo","kys","rape","rapist","kill yourself","die","moron","imbecile",
+];
+const MARATHI_BAD_WORDS = [
+  "madar","madarchod","bhenchod","behenchod","bhen","bhencho","bhenki",
+  "gaand","gaandu","gandu","lauda","lavda","lavde","lund","lundfakir",
+  "randi","rand","randya","randichi","jhavto","jhav","jhavla","jhavli",
+  "chodu","chodun","chod","chodtoy","chodtoes","gharchi rand",
+  "kutri","kutarya","kutarichi","sala","salya","saala","saali",
+  "harami","haramkhor","haramzada","haramzadi",
+  "kamina","kamine","kaminya","bevda","bevde","maderchod",
+  "aaicha gho","aaicha bo","aaizhavya","aaicha zhavla",
+  "chakka","hijra","hijda","hijaada","napunsak",
+  "chutiya","chutiye","chut","chutiyap","mc","bc","bhk",
+  "मादरचोद","भेनचोद","गांड","गांडू","लवडा","रांड","चोदू","साला","हरामी","चुत","चुतिया",
+];
+function hasProfanity(text) {
+  const lower = text.toLowerCase().replace(/[^a-z\u0900-\u097f\s]/g, " ");
+  for (const w of ENGLISH_BAD_WORDS) { if (lower.includes(w)) return true; }
+  for (const w of MARATHI_BAD_WORDS) { if (lower.includes(w.toLowerCase())) return true; }
+  return false;
+}
 
 // Sub-states: "lobby" | "answering" | "submitted" | "winner"
 
@@ -15,6 +43,8 @@ export default function PlayerGame({ playerName }) {
   const [error, setError] = useState("");
   const [translatedAnswer, setTranslatedAnswer] = useState("");
   const [translating, setTranslating] = useState(false);
+
+  const isProfane = useMemo(() => hasProfanity(answerText), [answerText]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -186,8 +216,18 @@ export default function PlayerGame({ playerName }) {
                 गुप्त नावाने पाठवा (Answer as Anonymous)
               </label>
             </div>
+            {isProfane && (
+              <div style={styles.profanityWarning}>
+                🚫 अयोग्य शब्द आढळले — कृपया योग्य भाषा वापरा!<br/>
+                <span style={styles.profanityWarningSub}>Inappropriate language detected. Please keep it clean! 🙏</span>
+              </div>
+            )}
             {error && <p style={styles.error}>{error}</p>}
-            <button style={styles.submitBtn} onClick={submitAnswer}>
+            <button
+              style={{ ...styles.submitBtn, ...(isProfane ? styles.submitBtnDisabled : {}) }}
+              onClick={submitAnswer}
+              disabled={isProfane}
+            >
               🚀 उत्तर पाठवा | Submit Answer
             </button>
           </div>
@@ -286,6 +326,18 @@ const styles = {
     width: "100%", padding: "15px", background: "#FF6B00", color: "white",
     border: "none", borderRadius: "12px", fontSize: "17px", fontWeight: "700",
     cursor: "pointer", marginTop: "4px",
+  },
+  submitBtnDisabled: {
+    background: "#ccc", color: "#888", cursor: "not-allowed",
+  },
+  profanityWarning: {
+    background: "#FFEBEE", border: "2px solid #EF9A9A",
+    borderRadius: "10px", padding: "10px 14px",
+    fontSize: "14px", color: "#B71C1C", fontWeight: "600",
+    marginBottom: "8px", lineHeight: "1.6",
+  },
+  profanityWarningSub: {
+    fontWeight: "400", fontSize: "13px", color: "#C62828",
   },
   translationBox: {
     background: "#F3E5F5",
