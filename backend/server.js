@@ -3,7 +3,7 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import { v4 as uuidv4 } from "uuid";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 // ── Config ────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
@@ -91,8 +91,8 @@ const io = new Server(httpServer, {
 app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
 
-// Anthropic client (only used for AI ranking)
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || "" });
+// OpenAI client (only used for AI ranking)
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
 
 app.get("/health", (_req, res) =>
   res.json({ status: "ok", players: gameState.players.size, code: gameState.code })
@@ -102,40 +102,36 @@ app.get("/health", (_req, res) =>
 app.post("/api/rank-answers", async (req, res) => {
   const { answers, question } = req.body;
   if (!answers || answers.length === 0) return res.json({ rankings: [] });
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return res.status(500).json({ error: "ANTHROPIC_API_KEY not set on server." });
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(500).json({ error: "OPENAI_API_KEY not set on server." });
   }
 
-  const answerList = answers
-    .map((a, i) => `${i + 1}. [${a.displayName}]: "${a.text}"`)
-    .join("\n");
+  // Build payload in the required format
+  const payload = {
+    Question: question,
+    Answers: answers.map((a) => ({
+      user: a.displayName,
+      answer: a.text,
+    })),
+  };
 
   try {
-    const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5",
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
       max_tokens: 1024,
-      messages: [{
-        role: "user",
-        content: `You are a judge at a Marathi comedy party game called HasyaSabha.
-The question asked was: "${question}"
-
-Here are the player answers:
-${answerList}
-
-Pick the TOP 3 funniest and wittiest answers. Consider: wordplay, originality, cultural relevance, absurdity, and Marathi humour sensibility.
-
-Respond ONLY with valid JSON in this exact format, no extra text:
-{
-  "rankings": [
-    { "rank": 1, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" },
-    { "rank": 2, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" },
-    { "rank": 3, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" }
-  ]
-}`
-      }]
+      messages: [
+        {
+          role: "system",
+          content: "You are a judge at a Marathi comedy party game called HasyaSabha. You evaluate answers for humor, wordplay, originality, cultural relevance, absurdity, and Marathi humour sensibility.",
+        },
+        {
+          role: "user",
+          content: `Here is the question and all player answers:\n${JSON.stringify(payload, null, 2)}\n\nPick the TOP 3 funniest and wittiest answers.\n\nRespond ONLY with valid JSON in this exact format, no extra text:\n{\n  "rankings": [\n    { "rank": 1, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" },\n    { "rank": 2, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" },\n    { "rank": 3, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" }\n  ]\n}`,
+        },
+      ],
     });
 
-    const raw = message.content[0].text.trim();
+    const raw = completion.choices[0].message.content.trim();
     const parsed = JSON.parse(raw);
     res.json(parsed);
   } catch (e) {
