@@ -73,6 +73,7 @@ const PRE_POPULATED_QUESTIONS = [
   { text: "Ti mala avadate karan...", aiAnswer: "Shopping kami karte" },
   { text: "Mi tila mhatla jara shant bas tar ti mahanli", aiAnswer: "Shant basyach asta tar tuzyashi lagna kashala kela asata" },
   { text: "Mazi bayko nehami mhanate ki ..", aiAnswer: "bhandi padli aahet ghasyala" },
+  { text: "Maza gym la jaycha tharatch nahi karan", aiAnswer: "Udya nakki janar asto" },
 ];
 
 // Map question text → AI answer for quick lookup
