@@ -98,46 +98,47 @@ app.get("/health", (_req, res) =>
   res.json({ status: "ok", players: gameState.players.size, code: gameState.code })
 );
 
-// ── REST: AI rank answers ──────────────────────────────────────
-app.post("/api/rank-answers", async (req, res) => {
-  const { answers, question } = req.body;
-  if (!answers || answers.length === 0) return res.json({ rankings: [] });
-  if (!process.env.OPENAI_API_KEY) {
-    return res.status(500).json({ error: "OPENAI_API_KEY not set on server." });
-  }
+// ── Shared: AI rank answers logic ─────────────────────────────
+async function rankAnswersWithAI(answers, question) {
+  if (!answers || answers.length === 0) return { rankings: [] };
+  if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not set on server.");
 
   // Exclude the "AI" test answer from ranking
-  const filteredAnswers = answers.filter((a) => a.displayName !== "AI" && a.realName !== "AI");
-  if (filteredAnswers.length === 0) return res.json({ rankings: [] });
+  const filteredAnswers = answers.filter((a) => (a.displayName || a.playerName) !== "AI");
+  if (filteredAnswers.length === 0) return { rankings: [] };
 
-  // Build payload in the required format
   const payload = {
     Question: question,
     Answers: filteredAnswers.map((a) => ({
-      user: a.displayName,
+      user: a.displayName || a.playerName,
       answer: a.text,
     })),
   };
 
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "system",
-          content: "You are a judge at a Marathi comedy party game called HasyaSabha. You evaluate answers for humor, wordplay, originality, cultural relevance, absurdity, and Marathi humour sensibility.",
-        },
-        {
-          role: "user",
-          content: `Here is the question and all player answers:\n${JSON.stringify(payload, null, 2)}\n\nPick the TOP 3 funniest and wittiest answers.\n\nRespond ONLY with valid JSON in this exact format, no extra text:\n{\n  "rankings": [\n    { "rank": 1, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" },\n    { "rank": 2, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" },\n    { "rank": 3, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" }\n  ]\n}`,
-        },
-      ],
-    });
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    max_tokens: 1024,
+    messages: [
+      {
+        role: "system",
+        content: "You are a judge at a Marathi comedy party game called HasyaSabha. You evaluate answers for humor, wordplay, originality, cultural relevance, absurdity, and Marathi humour sensibility.",
+      },
+      {
+        role: "user",
+        content: `Here is the question and all player answers:\n${JSON.stringify(payload, null, 2)}\n\nPick the TOP 3 funniest and wittiest answers.\n\nRespond ONLY with valid JSON in this exact format, no extra text:\n{\n  "rankings": [\n    { "rank": 1, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" },\n    { "rank": 2, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" },\n    { "rank": 3, "index": <1-based answer number>, "name": "<player name>", "answer": "<answer text>", "score": <score out of 10>, "reason": "<one short funny sentence why>" }\n  ]\n}`,
+      },
+    ],
+  });
 
-    const raw = completion.choices[0].message.content.trim();
-    const parsed = JSON.parse(raw);
-    res.json(parsed);
+  const raw = completion.choices[0].message.content.trim();
+  return JSON.parse(raw);
+}
+
+// ── REST: AI rank answers ──────────────────────────────────────
+app.post("/api/rank-answers", async (req, res) => {
+  try {
+    const result = await rankAnswersWithAI(req.body.answers, req.body.question);
+    res.json(result);
   } catch (e) {
     console.error("[AI rank] error:", e.message);
     res.status(500).json({ error: e.message });
@@ -278,6 +279,55 @@ function announceWinner(answerIndex) {
   console.log(`[winner] ${answer.playerName} with ${answer.votes.size} votes: "${answer.text}"`);
 }
 
+async function autoPickWinner() {
+  if (!gameState.activeQuestion) return;
+
+  const questionId = gameState.activeQuestion.id;
+  const questionText = gameState.activeQuestion.text;
+  const activeAnswers = gameState.answers.filter((a) => a.questionId === questionId);
+
+  // Need at least one non-AI answer
+  const playerAnswers = activeAnswers.filter((a) => a.playerName !== "AI");
+  if (playerAnswers.length === 0) {
+    console.log("[auto-pick] No player answers to rank.");
+    return;
+  }
+
+  try {
+    console.log(`[auto-pick] Ranking ${playerAnswers.length} answers with AI...`);
+    const serialized = playerAnswers.map((a) => ({
+      displayName: a.anonymous ? "Anonymous" : a.playerName,
+      text: a.text,
+    }));
+
+    const result = await rankAnswersWithAI(serialized, questionText);
+    const topRanked = result.rankings?.find((r) => r.rank === 1);
+
+    if (topRanked && topRanked.index >= 1 && topRanked.index <= playerAnswers.length) {
+      const winningAnswer = playerAnswers[topRanked.index - 1];
+      const globalIndex = gameState.answers.indexOf(winningAnswer);
+      if (globalIndex >= 0) {
+        console.log(`[auto-pick] Winner: ${winningAnswer.playerName} - "${winningAnswer.text}"`);
+        announceWinner(globalIndex);
+        return;
+      }
+    }
+
+    // Fallback: if AI ranking didn't work, pick the first player answer
+    console.log("[auto-pick] AI ranking fallback — picking first player answer.");
+    const fallbackIndex = gameState.answers.indexOf(playerAnswers[0]);
+    if (fallbackIndex >= 0) announceWinner(fallbackIndex);
+  } catch (e) {
+    console.error("[auto-pick] AI ranking failed:", e.message);
+    // Fallback: pick the first player answer
+    const fallbackIndex = gameState.answers.indexOf(playerAnswers[0]);
+    if (fallbackIndex >= 0) {
+      console.log("[auto-pick] Fallback — picking first player answer.");
+      announceWinner(fallbackIndex);
+    }
+  }
+}
+
 function startQuestionTimer() {
   let secondsLeft = TIMER_DURATION;
 
@@ -292,11 +342,8 @@ function startQuestionTimer() {
       }
       io.emit("timer-expired", {});
 
-      // Timer expired — admin reads answers aloud and picks winner manually
-      // Just notify admin so they can see all answers and select
-      if (gameState.adminSocketId) {
-        io.to(gameState.adminSocketId).emit("timer-expired-admin", {});
-      }
+      // Timer expired — auto-pick winner based on AI ranking
+      autoPickWinner();
     }
   }, 1000);
 

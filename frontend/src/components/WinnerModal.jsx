@@ -1,7 +1,43 @@
+import { useEffect } from "react";
+
+// Play a celebratory fanfare using Web Audio API (no external files needed)
+function playWinnerSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    const playNote = (freq, startTime, duration, gain = 0.15) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(gain, startTime);
+      g.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    };
+
+    const now = ctx.currentTime;
+    // Victory fanfare: C5 → E5 → G5 → C6
+    playNote(523, now, 0.2);        // C5
+    playNote(659, now + 0.15, 0.2); // E5
+    playNote(784, now + 0.3, 0.2);  // G5
+    playNote(1047, now + 0.5, 0.5); // C6 (held longer)
+  } catch (e) {
+    // Silently fail if audio isn't available
+  }
+}
+
 export default function WinnerModal({ winner, playerName }) {
   // Only compare against realWinnerName (server always sends this as the actual player name)
   // Never compare against winnerName as it can be "Anonymous" which would match incorrectly
   const isWinner = playerName && winner.realWinnerName === playerName;
+
+  // Play sound when winner modal appears
+  useEffect(() => {
+    playWinnerSound();
+  }, []);
 
   return (
     <div style={styles.overlay}>
