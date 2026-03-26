@@ -106,10 +106,14 @@ app.post("/api/rank-answers", async (req, res) => {
     return res.status(500).json({ error: "OPENAI_API_KEY not set on server." });
   }
 
+  // Exclude the "AI" test answer from ranking
+  const filteredAnswers = answers.filter((a) => a.displayName !== "AI" && a.realName !== "AI");
+  if (filteredAnswers.length === 0) return res.json({ rankings: [] });
+
   // Build payload in the required format
   const payload = {
     Question: question,
-    Answers: answers.map((a) => ({
+    Answers: filteredAnswers.map((a) => ({
       user: a.displayName,
       answer: a.text,
     })),
@@ -430,6 +434,31 @@ io.on("connection", (socket) => {
     });
 
     socket.emit("questions-updated", { questions: gameState.questions });
+
+    // Auto-add a test "AI" answer for every activated question
+    const aiAnswer = {
+      questionId: question.id,
+      playerName: "AI",
+      text: "🤖 This is a test answer from AI!",
+      anonymous: false,
+      submittedAt: Date.now(),
+      votes: new Set(),
+    };
+    gameState.answers.push(aiAnswer);
+    const aiAnswerIndex = gameState.answers.length - 1;
+
+    if (gameState.adminSocketId) {
+      io.to(gameState.adminSocketId).emit("new-answer", {
+        questionId: question.id,
+        displayName: "AI",
+        realName: "AI",
+        text: aiAnswer.text,
+        anonymous: false,
+        answerIndex: aiAnswerIndex,
+        voteCount: 0,
+      });
+    }
+
     console.log(`[question] activated: "${question.text}"`);
   });
 
