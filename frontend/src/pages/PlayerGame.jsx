@@ -189,7 +189,7 @@ export default function PlayerGame({ playerName }) {
               value={answerText}
               onChange={(e) => setAnswerText(e.target.value)}
               placeholder="तुमचे विनोदी उत्तर इथे लिहा... / Write your funny answer here..."
-              maxLength={500}
+              maxLength={150}
               rows={3}
               autoFocus
             />
