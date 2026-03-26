@@ -1,6 +1,6 @@
 # 🎭 हास्यसभा — HasyaSabha
 
-**The Comedy Assembly** — A real-time social party game for WMM Gudi Padwa get-togethers.
+**The Comedy Assembly** — A real-time social party game for Bexley Marathi Mandal Gudi Padwa get-togethers.
 
 Admin posts funny questions, participants answer on their phones, admin picks the funniest answer each round.
 

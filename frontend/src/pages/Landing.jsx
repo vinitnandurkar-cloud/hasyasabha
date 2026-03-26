@@ -26,7 +26,7 @@ export default function Landing({ navigate }) {
           </button>
         </div>
 
-        <p style={styles.footer}>✨ WMM Gudi Padwa 2025 ✨</p>
+        <p style={styles.footer}>✨ Bexley Marathi Mandal Gudi Padwa 2026 ✨</p>
       </div>
     </div>
   );
