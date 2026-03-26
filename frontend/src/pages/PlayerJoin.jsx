@@ -64,11 +64,12 @@ export default function PlayerJoin({ navigate }) {
             style={styles.input}
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
-            placeholder="Enter your name"
+            placeholder="e.g. ChaosCaptain, LaughingLion"
             maxLength={30}
             autoFocus
             onKeyDown={(e) => e.key === "Enter" && handleJoin()}
           />
+          <p style={styles.hint}>💡 Use a creative funny name, not your real name!</p>
         </div>
 
         {error && <p style={styles.error}>{error}</p>}
@@ -116,6 +117,14 @@ const styles = {
   title: { fontSize: "28px", color: "#E65100", margin: "0 0 4px 0", textAlign: "center" },
   subtitle: { fontSize: "14px", color: "#888", textAlign: "center", marginBottom: "26px" },
   field: { marginBottom: "16px" },
+  hint: {
+    fontSize: "12px",
+    color: "#FF6B00",
+    marginTop: "6px",
+    marginBottom: "0",
+    fontWeight: "500",
+    fontStyle: "italic",
+  },
   label: {
     display: "block",
     fontSize: "13px",
