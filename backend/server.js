@@ -82,6 +82,7 @@ const PRE_POPULATED_QUESTIONS = [
   { text: "Amchya ghari shantata aste joparyant....", aiAnswer: "Tumhi sanga" },
   { text: "Mazya bayko cha eka minute ta yete mhanaje", aiAnswer: "Tumhi Sanga" },
   { text: "Mazya bayko chya shopping var me kahi bolat nahi karan...", aiAnswer: "Tumhi Sanga" },
+  { text: "Navryach me diet var aahe mhanaje", aiAnswer: "Tumhi Sanga" },
 ];
 
 // Map question text → AI answer for quick lookup
