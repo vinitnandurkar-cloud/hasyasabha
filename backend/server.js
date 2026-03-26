@@ -81,6 +81,7 @@ const PRE_POPULATED_QUESTIONS = [
   { text: "Lagnachya pahilya varshi amhi roj phiralya baher jaycho", aiAnswer: "Aata aqt wifi band jhalyavar jato" },
   { text: "Amchya ghari shantata aste joparyant....", aiAnswer: "Tumhi sanga" },
   { text: "Mazya bayko cha eka minute ta yete mhanaje", aiAnswer: "Tumhi Sanga" },
+  { text: "Mazya bayko chya shopping var me kahi bolat nahi karan...", aiAnswer: "Tumhi Sanga" },
 ];
 
 // Map question text → AI answer for quick lookup
