@@ -59,7 +59,7 @@ export default function PlayerJoin({ navigate }) {
         </div>
 
         <div style={styles.field}>
-          <label style={styles.label}>तुमचे नाव / Your Name</label>
+          <label style={styles.label}>तुमचे काल्पनिक मजेदार नाव / Your Imaginary Funny Name</label>
           <input
             style={styles.input}
             value={playerName}
