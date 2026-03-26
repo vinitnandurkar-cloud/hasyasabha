@@ -74,6 +74,7 @@ const PRE_POPULATED_QUESTIONS = [
   { text: "Mi tila mhatla jara shant bas tar ti mahanli", aiAnswer: "Shant basyach asta tar tuzyashi lagna kashala kela asata" },
   { text: "Mazi bayko nehami mhanate ki ..", aiAnswer: "bhandi padli aahet ghasyala" },
   { text: "Maza gym la jaycha tharatch nahi karan", aiAnswer: "Udya nakki janar asto" },
+  { text: "Mala vatla hota ki aaj cha divas changla jael pan...", aiAnswer: "Sasu bai n cha phone ala" },
 ];
 
 // Map question text → AI answer for quick lookup
