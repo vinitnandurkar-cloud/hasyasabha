@@ -67,6 +67,17 @@ async function translateToMarathi(text) {
   }
 }
 
+// ── Pre-populated Questions with AI Answers ───────────────────
+const PRE_POPULATED_QUESTIONS = [
+  { text: "Tumcha nav kay aahe", aiAnswer: "Gabbar" },
+  { text: "Ti mala avadate karan...", aiAnswer: "Shopping kami karte" },
+];
+
+// Map question text → AI answer for quick lookup
+const AI_ANSWERS_MAP = new Map(
+  PRE_POPULATED_QUESTIONS.map((q) => [q.text.toLowerCase().trim(), q.aiAnswer])
+);
+
 // ── In-Memory State ───────────────────────────────────────────
 // answers shape: { questionId, playerName, text, anonymous, submittedAt, votes: Set<playerName>, answerIndex }
 const gameState = {
@@ -80,6 +91,20 @@ const gameState = {
   adminSocketId: null,
   winCounts: new Map(),     // playerName -> number of wins (persists across rounds)
 };
+
+// Pre-populate questions on server start
+(async () => {
+  for (const pq of PRE_POPULATED_QUESTIONS) {
+    const textMr = await translateToMarathi(pq.text);
+    gameState.questions.push({
+      id: uuidv4(),
+      text: pq.text,
+      textMr,
+      status: "pending",
+    });
+  }
+  console.log(`[init] Pre-populated ${PRE_POPULATED_QUESTIONS.length} questions.`);
+})();
 
 // ── Express + Socket.io setup ─────────────────────────────────
 const app = express();
@@ -482,11 +507,12 @@ io.on("connection", (socket) => {
 
     socket.emit("questions-updated", { questions: gameState.questions });
 
-    // Auto-add a test "AI" answer for every activated question
+    // Auto-add AI answer — use mapped answer if available, otherwise a generic one
+    const mappedAiAnswer = AI_ANSWERS_MAP.get(question.text.toLowerCase().trim());
     const aiAnswer = {
       questionId: question.id,
       playerName: "AI",
-      text: "🤖 This is a test answer from AI!",
+      text: mappedAiAnswer || "🤖 This is a test answer from AI!",
       anonymous: false,
       submittedAt: Date.now(),
       votes: new Set(),
